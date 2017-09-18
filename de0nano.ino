@@ -1,37 +1,24 @@
+#include <SmallFS.h>
+#include <zlib.h>
+#include <png.h>
+#include <PNGFile.h>
+#include <Timer.h>
+#include <SPI.h>
+
 #include "pwmblock.h"
 #include "i2c.h"
 #include "decay.h"
 #include "Adafruit_GFX.h"
 #include "panelv2.h"
-#include <SmallFS.h>
-#include <zlib.h>
-#include <png.h>
-#include <PNGFile.h>
 #include "wiichuck.h"
 #include "tetris.h"
 #include "font.h"
-#include <Timer.h>
-#include <SPI.h>
 #include "samplingbuffer.h"
+#include "FFT.h"
+#include "window.h"
 
 #define ACCEL_I2C_ADDRESS 0x1D
 #define EEPROM_I2C_ADDRESS 0x50
-
-static PWMBlock_class PWMBlock;
-PanelV2_class RGBPanel;
-static I2C_class chuck_i2c;
-static WIIChuck_class WIIChuck(chuck_i2c);
-static bool chuckPresent = false;
-
-SPIClass SPI_ext(1);
-SPIClass SPI_adc(2);
-
-typedef fp32_16_16 fixed_t; // Fixed-point Q16
-
-static Decay<8> led_decay;
-
-static int lastindex=4;
-
 
 #define ACCEL_REG_X 0x32
 #define ACCEL_REG_Y 0x34
@@ -45,9 +32,28 @@ static int lastindex=4;
 #define FFT_POINTS 1024
 #define SAMPLE_BUFFER_SIZE FFT_POINTS
 
+static PWMBlock_class PWMBlock;
+static PanelV2_class RGBPanel;
+static I2C_class chuck_i2c;
+static WIIChuck_class WIIChuck(chuck_i2c);
+static bool chuckPresent = false;
+
+static SPIClass SPI_ext(1);
+static SPIClass SPI_adc(2);
+
+typedef fp32_16_16 fixed_t; // Fixed-point Q16
+
+static Decay<8> led_decay;
+
+static int lastindex=4;
+
 typedef SamplingBuffer<SAMPLE_BUFFER_SIZE> mySamplingBuffer;
 
 static mySamplingBuffer samplingBuffer;
+static FFT_1024 myfft; // 1024-point FFT
+static Window<1024> window_1024; // Hamming window 1024 points.
+
+
 
 void read_accel()
 {
@@ -137,14 +143,18 @@ void setup_adc()
 
 int wait_for_key()
 {
-    int i;
-    while (1) {
+    int i = 500;
+    while (i--) {
         WIIChuck.update();
-        i = WIIChuck.getButtons();
-        if (i)
-            return i;
+        if (WIIChuck.getZEvent()==EVENT_PRESS) {
+            return 1;
+        }
+        if (WIIChuck.getCEvent()==EVENT_PRESS) {
+            return 2;
+        }
         delay(10);
     }
+    return 0;
 }
 
 
@@ -158,6 +168,7 @@ void setup()
     if (WIIChuck.init_nunchuck()>=0) {
         chuckPresent=true;
     } else {
+        chuckPresent=true;
         Serial.println("Could not initialize WII Nunchuck");
     }
     SmallFS.begin();
@@ -182,9 +193,10 @@ void setup()
     RGBPanel.setPixelRaw(0,16,0xFFFFFF);
     RGBPanel.setPixelRaw(127,0,0xFFFFFF);
     RGBPanel.apply();
-#if 0
+#if 1
     PNGFile png1, png2, png3;
     int r = 0;
+    RGBPanel.setReverse(true);
 
     r+=png1.read("smallfs/terasic.png");
     r+=png2.read("smallfs/1.png");
@@ -197,7 +209,7 @@ void setup()
             RGBPanel.apply();
             //while (wait_for_key()&2);
 
-            if (wait_for_key()&1) break;
+            if (wait_for_key()==2) break;
             //RGBPanel.fadeLeft(0,96);
             Serial.println("Display two");
             png2.put32((uint32_t*)(&RGBPanel.getScreen()[0]),96);
@@ -205,7 +217,7 @@ void setup()
 
             //while (wait_for_key()&2);
 
-            if (wait_for_key()&1) break;
+            if (wait_for_key()==2) break;
 
             Serial.println("Display three");
             png3.put32((uint32_t*)(&RGBPanel.getScreen()[0]),96);
@@ -213,7 +225,7 @@ void setup()
 
             //while (wait_for_key()&2);
 
-            if (wait_for_key()&1) break;
+            if (wait_for_key()==2) break;
 
         }
     }
@@ -240,6 +252,7 @@ void setup()
         I2C.writeregister(ACCEL_I2C_ADDRESS, 0x2D, (1<<3));
     } while (0);
 
+    RGBPanel.setReverse(false);
     setup_game();
 
 }

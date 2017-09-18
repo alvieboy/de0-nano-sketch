@@ -9,6 +9,7 @@ void WIIChuck_class::begin()
 {
     i2c_instance.begin(100000);
     i2c_instance.enable();
+    z_button = c_button = p_z_button = p_c_button = 0;
 }
 
 void WIIChuck_class::prstatus()
@@ -149,6 +150,9 @@ void WIIChuck_class::nunchuck_update_data(unsigned char *nunchuck_buf)
   accel_x_axis <<=2;
   accel_y_axis <<=2;
   accel_z_axis <<=2;
+
+  p_z_button = z_button;
+  p_c_button = c_button;
 
   z_button = 1;
   c_button = 1;

@@ -36,6 +36,7 @@ public:
 
     PanelV2_class(): Adafruit_GFX_32(), BaseDevice(1)
     {
+        reverse=false;
     }
     bool begin(bool doubleBuffer=false)
     {
@@ -190,6 +191,12 @@ public:
         }
 
     }
+    bool reverse;
+
+    void setReverse(bool r)
+    {
+        reverse = r;
+    }
 
 
     void apply()
@@ -197,7 +204,10 @@ public:
 #if 0
         memcpy( (void*)screenBase, (void*)screen, framebuffersize);
 #else
-        apply96_rev();
+        if (reverse)
+            apply96_rev();
+        else
+            apply96();
 #endif
     }
     void shiftLeft(unsigned int color)
@@ -405,6 +415,5 @@ public:
     volatile unsigned int *screenBase;
     unsigned int *screen;
 };
-extern PanelV2_class RGBPanel;
 
 #endif

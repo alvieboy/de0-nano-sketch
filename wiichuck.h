@@ -9,6 +9,10 @@ using namespace ZPUino;
 #define BUTTON_C 2
 #define BUTTON_ZC 3
 
+#define EVENT_NONE    0
+#define EVENT_PRESS   1
+#define EVENT_RELEASE 2
+
 class WIIChuck_class
 {
 public:
@@ -28,7 +32,9 @@ public:
     int getJoyX() const { return joy_x_axis; }
     int getJoyY() const { return joy_y_axis; }
     int getZButton() const { return z_button; }
+    int getZEvent() const { return z_button ^ p_z_button ? ( z_button ? EVENT_PRESS : EVENT_RELEASE ) : EVENT_NONE; }
     int getCButton() const { return c_button; }
+    int getCEvent() const { return c_button ^ p_c_button ? ( c_button ? EVENT_PRESS : EVENT_RELEASE ) : EVENT_NONE; }
     int getButtons() const { return (c_button<<1)+z_button; }
 
     int getAccelX() const { return accel_x_axis; }
@@ -42,6 +48,10 @@ public:
 
     int z_button;
     int c_button;
+
+    int p_z_button;
+    int p_c_button;
+
 };
 
 #endif
